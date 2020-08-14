@@ -23,6 +23,11 @@
 #include <time.h>
 #include <ctype.h>
 
+//IntelliSense Errors begone
+#include "cuda.h"
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+
 
 #define signed_seed_t int64_t
 #define uint uint32_t
@@ -103,14 +108,16 @@ inline void gpuAssert(cudaError_t code, const char* file, int line) {
 #define advance_774(rand) advance(rand, 0xF8D900133F9LL, 0x5738CAC2F85ELL)
 #define advance_387(rand) advance(rand, 0x5FE2BCEF32B5LL, 0xB072B3BF0CBDLL)
 #define advance_16(rand) advance(rand, 0x6DC260740241LL, 0xD0352014D90LL)
+#define advance_11(rand) advance(rand, 0x53BCE7B8C655LL, 0x3BB194F24A25LL)
+#define advance_7(rand) advance(rand, 0x37BC7ED23B05LL, 0x17A0D1925D11LL)
+#define advance_3(rand) advance(rand, 0xD498BD0AC4B5LL, 0xAA8544E593DLL)
 #define advance_m1(rand) advance(rand, 0xDFE05BCB1365LL, 0x615C0E462AA9LL)
 #define advance_m3759(rand) advance(rand, 0x63A9985BE4ADLL, 0xA9AA8DA9BC9BLL)
 
 
-
 #define WATERFALL_X 12
 #define WATERFALL_Y 76
-#define WATERFALL_Z 10
+#define WATERFALL_Z 9
 
 #define TREE_X (WATERFALL_X - 5)
 #define TREE_Z (WATERFALL_Z - 8)
@@ -127,7 +134,26 @@ __device__ inline int getTreeHeight(int x, int z) {
     return 0;
 }
 
+__device__ bool checkA1(Random *random)
+{
+    bool _0 = random_next_int(random, 2) != 0;
+    advance_3(*random);
+    bool _4 = random_next_int(random, 2) != 0;
+    advance_11(*random);
+    return !_0 && _4;
+}
 
+__device__ bool checkA2(Random *random)
+{
+    bool _0 = random_next_int(random, 2) != 0;
+    advance_3(*random);
+    bool _4 = random_next_int(random, 2) != 0;
+    advance_7(*random);
+    bool _12 = random_next_int(random, 2) != 0;
+    advance_3(*random);
+    return _0 && _4 && !_12;
+    return true;
+}
 
 #define MODULUS (1LL << 48)
 #define SQUARE_SIDE (MODULUS / 16)
@@ -235,9 +261,19 @@ __global__ void doWork(int* num_starts, Random* tree_starts, int* num_seeds, ulo
                 const char mask = 1 << (treeZ % 8);
 
                 if (treeHeight == wantedTreeHeight && !(boolpack & mask)) {
-                    treesMatched++;
                     boolpack |= mask;
-                    advance_16(rand);
+
+                    if (treeX == TREE_X && treeZ == TREE_Z) {
+                        if (checkA2(&rand))
+                            treesMatched++;
+                    }
+                    else if (treeX == WATERFALL_X - 3 && treeZ == WATERFALL_Z + 3) {
+                        if (checkA1(&rand))
+                            treesMatched++;
+                    }
+                    else {
+                        advance_16(rand);
+                    }
                 }
 
                 if (treesMatched == OTHER_TREE_COUNT + 1) {
